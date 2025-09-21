@@ -13,19 +13,20 @@ function parseCharacteristics(xml) {
     const $ = cheerio.load(xml, { xmlMode: true });
     const characteristics = [];
     
-    $('characteristicsUsingReferenceInfo').each((i, element) => {
+    // Правильный селектор с namespace (двойной escape)
+    $('ns3\\\\:characteristicsUsingReferenceInfo').each((i, element) => {
         const $element = $(element);
         
-        const name = $element.find('name').first().text().trim();
-        const code = $element.find('code').first().text().trim();
-        const kind = parseInt($element.find('kind').text().trim());
-        const type = parseInt($element.find('type').text().trim());
+        const name = $element.find('ns3\\\\:name').first().text().trim();
+        const code = $element.find('ns3\\\\:code').first().text().trim();
+        const kind = parseInt($element.find('ns3\\\\:kind').text().trim());
+        const type = parseInt($element.find('ns3\\\\:type').text().trim());
         
         const values = [];
-        $element.find('values value').each((j, valueElement) => {
+        $element.find('ns3\\\\:values ns3\\\\:value').each((j, valueElement) => {
             const $value = $(valueElement);
-            const qualityDescription = $value.find('qualityDescription').text().trim();
-            const sid = $value.find('sid').text().trim();
+            const qualityDescription = $value.find('ns3\\\\:qualityDescription').text().trim();
+            const sid = $value.find('ns3\\\\:sid').text().trim();
             
             if (qualityDescription) {
                 values.push({
@@ -39,10 +40,8 @@ function parseCharacteristics(xml) {
             let displayText;
             
             if (kind === 3 && values.length > 1) {
-                // Множественные значения
                 displayText = `${name}:\n${values.map(v => `• ${v.value}`).join('\n')}`;
             } else {
-                // Одиночное значение
                 displayText = `${name}: ${values[0].value}`;
             }
             
