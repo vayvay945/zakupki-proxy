@@ -13,45 +13,33 @@ function parseCharacteristics(xml) {
     const $ = cheerio.load(xml, { xmlMode: true });
     const characteristics = [];
     
-    // Правильный селектор с namespace (двойной escape)
-    $('ns3\\\\:characteristicsUsingReferenceInfo').each((i, element) => {
+    $('characteristicsUsingReferenceInfo').each((i, element) => {
         const $element = $(element);
         
-        const name = $element.find('ns3\\\\:name').first().text().trim();
-        const code = $element.find('ns3\\\\:code').first().text().trim();
-        const kind = parseInt($element.find('ns3\\\\:kind').text().trim());
-        const type = parseInt($element.find('ns3\\\\:type').text().trim());
+        const name = $element.find('name').first().text().trim();
+        const code = $element.find('code').first().text().trim();
+        const kind = parseInt($element.find('kind').text().trim());
         
         const values = [];
-        $element.find('ns3\\\\:values ns3\\\\:value').each((j, valueElement) => {
+        $element.find('value').each((j, valueElement) => {
             const $value = $(valueElement);
-            const qualityDescription = $value.find('ns3\\\\:qualityDescription').text().trim();
-            const sid = $value.find('ns3\\\\:sid').text().trim();
+            const qualityDescription = $value.find('qualityDescription').text().trim();
             
             if (qualityDescription) {
                 values.push({
-                    sid: sid,
                     value: qualityDescription
                 });
             }
         });
         
         if (name && values.length > 0) {
-            let displayText;
-            
-            if (kind === 3 && values.length > 1) {
-                displayText = `${name}:\n${values.map(v => `• ${v.value}`).join('\n')}`;
-            } else {
-                displayText = `${name}: ${values[0].value}`;
-            }
-            
             characteristics.push({
                 name: name,
                 code: code,
                 kind: kind,
                 type: kind === 3 ? "multiple" : "single",
                 values: kind === 3 ? values.map(v => v.value) : values[0].value,
-                displayText: displayText
+                displayText: kind === 3 ? `${name}:\n${values.map(v => `• ${v.value}`).join('\n')}` : `${name}: ${values[0].value}`
             });
         }
     });
