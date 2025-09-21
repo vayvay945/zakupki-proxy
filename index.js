@@ -25,7 +25,7 @@ app.get('/:regNumber', async (req, res) => {
     }
 });
 
-// НОВЫЙ endpoint для поиска номеров контрактов
+// Endpoint для поиска номеров контрактов
 app.get('/contracts/:regNumber', async (req, res) => {
     try {
         const searchUrl = `https://zakupki.gov.ru/epz/contract/search/results.html?searchString=${req.params.regNumber}`;
@@ -45,9 +45,9 @@ app.get('/contracts/:regNumber', async (req, res) => {
         const contracts = [];
         
         // Ищем ссылки на контракты в результатах поиска
-        $('a[href*="/epz/contract/"]').each((i, element) => {
+        $('.registry-entry__header-mid__number a[href*="reestrNumber="]').each((i, element) => {
             const href = $(element).attr('href');
-            const contractMatch = href.match(/regNumber=(\d+)/);
+            const contractMatch = href.match(/reestrNumber=(\d+)/);
             
             if (contractMatch) {
                 const contractNumber = contractMatch[1];
@@ -72,6 +72,27 @@ app.get('/contracts/:regNumber', async (req, res) => {
             totalFound: uniqueContracts.length
         });
         
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Новый endpoint для получения XML контракта
+app.get('/contract-xml/:contractNumber', async (req, res) => {
+    try {
+        const xmlUrl = `https://zakupki.gov.ru/epz/contract/printForm/viewXml.html?contractReestrNumber=${req.params.contractNumber}`;
+        const response = await fetch(xmlUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const xml = await response.text();
+        res.type('xml').send(xml);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
