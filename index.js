@@ -8,6 +8,58 @@ app.use((req, res, next) => {
     next();
 });
 
+// Функция для парсинга XML и извлечения характеристик
+function parseCharacteristics(xml) {
+    const $ = cheerio.load(xml, { xmlMode: true });
+    const characteristics = [];
+    
+    $('characteristicsUsingReferenceInfo').each((i, element) => {
+        const $element = $(element);
+        
+        const name = $element.find('name').first().text().trim();
+        const code = $element.find('code').first().text().trim();
+        const kind = parseInt($element.find('kind').text().trim());
+        const type = parseInt($element.find('type').text().trim());
+        
+        const values = [];
+        $element.find('values value').each((j, valueElement) => {
+            const $value = $(valueElement);
+            const qualityDescription = $value.find('qualityDescription').text().trim();
+            const sid = $value.find('sid').text().trim();
+            
+            if (qualityDescription) {
+                values.push({
+                    sid: sid,
+                    value: qualityDescription
+                });
+            }
+        });
+        
+        if (name && values.length > 0) {
+            let displayText;
+            
+            if (kind === 3 && values.length > 1) {
+                // Множественные значения
+                displayText = `${name}:\n${values.map(v => `• ${v.value}`).join('\n')}`;
+            } else {
+                // Одиночное значение
+                displayText = `${name}: ${values[0].value}`;
+            }
+            
+            characteristics.push({
+                name: name,
+                code: code,
+                kind: kind,
+                type: kind === 3 ? "multiple" : "single",
+                values: kind === 3 ? values.map(v => v.value) : values[0].value,
+                displayText: displayText
+            });
+        }
+    });
+    
+    return characteristics;
+}
+
 // Существующий endpoint для получения XML ТЗ
 app.get('/:regNumber', async (req, res) => {
     try {
@@ -22,6 +74,29 @@ app.get('/:regNumber', async (req, res) => {
         res.type('xml').send(xml);
     } catch (error) {
         res.status(500).send(`Ошибка: ${error.message}`);
+    }
+});
+
+// Новый endpoint для получения структурированных данных ТЗ
+app.get('/:regNumber/parsed', async (req, res) => {
+    try {
+        const xmlUrl = `https://zakupki.gov.ru/epz/order/notice/printForm/viewXml.html?regNumber=${req.params.regNumber}`;
+        const response = await fetch(xmlUrl);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const xml = await response.text();
+        const characteristics = parseCharacteristics(xml);
+        
+        res.json({
+            regNumber: req.params.regNumber,
+            totalCharacteristics: characteristics.length,
+            characteristics: characteristics
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -77,7 +152,7 @@ app.get('/contracts/:regNumber', async (req, res) => {
     }
 });
 
-// Новый endpoint для получения XML контракта
+// Endpoint для получения XML контракта
 app.get('/contract-xml/:contractNumber', async (req, res) => {
     try {
         const xmlUrl = `https://zakupki.gov.ru/epz/contract/printForm/viewXml.html?contractReestrNumber=${req.params.contractNumber}`;
@@ -93,6 +168,33 @@ app.get('/contract-xml/:contractNumber', async (req, res) => {
         
         const xml = await response.text();
         res.type('xml').send(xml);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint для получения структурированных данных контракта
+app.get('/contract-xml/:contractNumber/parsed', async (req, res) => {
+    try {
+        const xmlUrl = `https://zakupki.gov.ru/epz/contract/printForm/viewXml.html?contractReestrNumber=${req.params.contractNumber}`;
+        const response = await fetch(xmlUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const xml = await response.text();
+        const characteristics = parseCharacteristics(xml);
+        
+        res.json({
+            contractNumber: req.params.contractNumber,
+            totalCharacteristics: characteristics.length,
+            characteristics: characteristics
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
